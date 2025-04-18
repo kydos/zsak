@@ -1,0 +1,14 @@
+[package]
+name = "zsak"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "zenoh"
+path = "src/main.rs"
+
+[dependencies]
+zenoh = { version = "1.3.3", features = ["unstable", "shared-memory"]}
+tokio = { version = "1.44.2", features = ["full"] }
+clap = { version = "4.5.36", features = ["unstable-doc", "unstable-ext", "derive", "suggestions"]}
+colored = { version ="3.0.0"}
