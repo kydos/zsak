@@ -1,28 +1,29 @@
-mod parser;
 mod action;
-
+mod parser;
 
 #[tokio::main]
 async fn main() {
     let matches = parser::arg_parser().get_matches();
 
     let config = match matches.get_one::<String>("config") {
-        Some(fname) => {
-            zenoh::Config::from_file(fname).expect("Unable to open the Zenoh Config")
-        },
-        None => zenoh::Config::default()
+        Some(fname) => zenoh::Config::from_file(fname).expect("Unable to open the Zenoh Config"),
+        None => zenoh::Config::default(),
     };
-    let z = zenoh::open(config).await.expect("Unable to open the Zenoh Session");
+
+    let z = zenoh::open(config.clone())
+        .await
+        .expect("Unable to open the Zenoh Session");
 
     match matches.subcommand() {
-        Some(("pub", sub_matches)) => {
-            action::do_put(&z, sub_matches).await;
+        Some(("scout", sub_matches)) => {
+            action::do_scout(&z, sub_matches).await;
         },
-        Some(("sub", sub_matches)) => {
-            action::do_sub(&z, sub_matches).await;
-        },
-        _ => {
-
+        Some(("publish", sub_matches)) => {
+            action::do_publish(&z, sub_matches).await;
         }
+        Some(("subscribe", sub_matches)) => {
+            action::do_subscribe(&z, sub_matches).await;
+        }
+        _ => {}
     }
 }
