@@ -17,12 +17,15 @@ async fn main() {
     match matches.subcommand() {
         Some(("scout", sub_matches)) => {
             action::do_scout(&z, sub_matches).await;
-        },
+        }
         Some(("publish", sub_matches)) => {
             action::do_publish(&z, sub_matches).await;
         }
         Some(("subscribe", sub_matches)) => {
             action::do_subscribe(&z, sub_matches).await;
+        }
+        Some(("query", sub_matches)) => {
+            action::do_query(&z, sub_matches).await;
         }
         _ => {}
     }

@@ -1,5 +1,5 @@
+use clap::{ArgMatches, Command, arg};
 use std::str::FromStr;
-use clap::{Command, arg, ArgMatches};
 use tokio::io::AsyncReadExt;
 
 const PUB_AFTER_HELP: &str = r#"
@@ -48,7 +48,7 @@ pub(crate) fn arg_parser() -> Command {
                 .about("Publishes data on a given key expression")
                 .arg(arg!(-c --count <NUMBER> "The number of publications").required(false))
                 .arg(arg!(-p --period <DURATION> "The number of publications").required(false))
-                .arg(arg!(-f --file "If enabled expects that value/attachment are file names"))
+                .arg(arg!(-f --file "If enabled expects that value/attachment are file names").required(false))
                 .arg(arg!(<KEY_EXPR> "The key expression used for the publication").required(true))
                 .arg(arg!(<VALUE> "The value used for this publication").required(true))
                 .arg(arg!(<ATTACHMENT> "The publication attachment, if any").required(false))
@@ -63,7 +63,9 @@ pub(crate) fn arg_parser() -> Command {
         .subcommand(
             Command::new("query")
                 .about("Issues a query")
-                .arg(arg!(-f --file "If enabled expects that body/attachment are file names"))
+                .arg(arg!(-f --file "If enabled expects that body/attachment are file names").required(false))
+                .arg(arg!(-t --target <QUERY_TARGET> "Should be one of <best|all|all-complete>, \"best\" used by as the default.").required(false))
+                .arg(arg!(-c --consolidation <CONSOLIDATION> "Should be one of <none|monotonic|latest>,  \"none\" used as the default.").required(false))
                 .arg(arg!(<QUERY_EXPR> "The key expression used for the publication").required(true))
                 .arg(arg!(<BODY> "The value used for this publication").required(false))
                 .arg(arg!(<ATTACHMENT> "The publication attachment, if any").required(false))
@@ -71,12 +73,14 @@ pub(crate) fn arg_parser() -> Command {
         )
 }
 
-pub(crate) async fn resolve_argument<T: FromStr>(sub_matches: &ArgMatches, arg: &str, file_based: bool) -> Result<T, T::Err> {
+pub(crate) async fn resolve_argument<T: FromStr>(
+    sub_matches: &ArgMatches,
+    arg: &str,
+    file_based: bool,
+) -> Result<T, T::Err> {
     let v = sub_matches.get_one::<String>(arg).unwrap();
     if file_based {
-        let mut f = tokio::fs::File::open(v)
-            .await
-            .expect("Unable to open file");
+        let mut f = tokio::fs::File::open(v).await.expect("Unable to open file");
         let mut content = String::new();
         let _ = f
             .read_to_string(&mut content)
@@ -87,12 +91,14 @@ pub(crate) async fn resolve_argument<T: FromStr>(sub_matches: &ArgMatches, arg: 
         v.to_string().parse::<T>()
     }
 }
-pub(crate) async fn resolve_optional_argument<T: FromStr>(sub_matches: &ArgMatches, arg: &str, file_based: bool) -> Result<Option<T>, T::Err> {
+pub(crate) async fn resolve_optional_argument<T: FromStr>(
+    sub_matches: &ArgMatches,
+    arg: &str,
+    file_based: bool,
+) -> Result<Option<T>, T::Err> {
     if let Some(v) = sub_matches.get_one::<String>(arg) {
         if file_based {
-            let mut f = tokio::fs::File::open(v)
-                .await
-                .expect("Unable to open file");
+            let mut f = tokio::fs::File::open(v).await.expect("Unable to open file");
             let mut content = String::new();
             let _ = f
                 .read_to_string(&mut content)
@@ -102,5 +108,15 @@ pub(crate) async fn resolve_optional_argument<T: FromStr>(sub_matches: &ArgMatch
         } else {
             v.to_string().parse::<T>().map(Some)
         }
-    } else { Ok(None) }
+    } else {
+        Ok(None)
+    }
+}
+
+pub(crate) fn resolve_bool_argument(sub_matches: &ArgMatches, arg: &str) -> bool {
+    if let Some(v) = sub_matches.get_one::<bool>(arg) {
+        *v
+    } else {
+        false
+    }
 }
