@@ -1,4 +1,5 @@
 use crate::parser::*;
+
 use clap::ArgMatches;
 use colored::Colorize;
 use std::any::Any;
@@ -7,8 +8,21 @@ use std::time::Duration;
 use zenoh::bytes::Encoding;
 use zenoh::config::WhatAmI;
 use zenoh::query::{ConsolidationMode, QueryTarget};
+use zenoh::sample::SourceInfo;
 use zenoh::session::ZenohId;
 
+pub async fn do_doctor() {
+    match std::env::var("ZSAK_HOME") {
+        Ok(_) => {
+            if let Err(_) = tokio::process::Command::new("zenohd").arg("-h").output().await {
+                println!("There is no zenohd defined in your PATH. Please double check your system configuration.");
+            }
+        },
+        Err(_) => {
+            println!("The ZSAK_HOME environment variable is not set, please run the setup.sh (see README.md for more information)");
+        }
+    };
+}
 pub async fn do_scout(z: &zenoh::Session, sub_matches: &ArgMatches) {
     let scout_interval = resolve_argument::<u64>(sub_matches, "SCOUT_INTERVAL", false)
         .await
@@ -32,7 +46,7 @@ pub async fn do_scout(z: &zenoh::Session, sub_matches: &ArgMatches) {
                 println!("\t{}: {}", "Zenoh ID".bold(), hello.zid());
                 println!("\t{}: {}", "Kind".bold(), hello.whatami());
                 println!(
-                    "\t{}:{}\n",
+                    "\t{}\n:{}\n",
                     "Locators".bold(),
                     hello
                         .locators()
@@ -87,7 +101,7 @@ pub async fn do_publish(z: &zenoh::Session, sub_matches: &ArgMatches) {
             println!("[{}]", i);
         }
         if period != 0 {
-            tokio::time::sleep(tokio::time::Duration::from_millis(period)).await;
+            tokio::time::sleep(Duration::from_millis(period)).await;
         }
     }
 }
@@ -102,7 +116,7 @@ pub async fn do_subscribe(z: &zenoh::Session, sub_matches: &ArgMatches) {
     while let Ok(sample) = s.recv_async().await {
         n += 1;
         println!("{}({}):", "Sample".bold(), n);
-        if sample.encoding().type_id() == zenoh::bytes::Encoding::ZENOH_STRING.type_id() {
+        if sample.encoding().type_id() == Encoding::ZENOH_STRING.type_id() {
             if let Some(attch) = sample.attachment() {
                 let str = attch.try_to_string().unwrap_or(Cow::from("[..]"));
 
@@ -153,7 +167,6 @@ pub(crate) async fn do_query(z: &zenoh::Session, sub_matches: &ArgMatches) {
             QueryTarget::BestMatching
         }
     };
-    println!("Query target: {:?}", target);
 
     let consolidation =
         match resolve_optional_argument::<String>(sub_matches, "consolidation", false)
@@ -211,13 +224,14 @@ pub(crate) async fn do_query(z: &zenoh::Session, sub_matches: &ArgMatches) {
     let mut count: u64 = 0;
     while let Ok(reply) = replies.recv_async().await {
         count += 1;
+
         println!("{}({}):", "Reply".bold(), count);
-        let rid = if let Some(id) = reply.replier_id() {
-            id.to_string()
-        } else {
-            "Unknown".into()
-        };
-        println!("\t{}: {}", "Replier Id".bold(), rid);
+        // let rid = if let Some(id) = reply.replier_id() {
+        //     id.to_string()
+        // } else {
+        //     "Unknown".into()
+        // };
+        // println!("\t{}: {}", "Replier Id".bold(), rid);
 
         match reply.result() {
             Ok(result) => {
@@ -227,10 +241,10 @@ pub(crate) async fn do_query(z: &zenoh::Session, sub_matches: &ArgMatches) {
                     "Unknown".into()
                 };
                 let ssn = result.source_info().source_sn().unwrap_or_default();
-
                 println!("\t{}: {}", "Source Id".bold(), sid);
                 println!("\t{}: {}", "Source SN".bold(), ssn);
                 println!("\t{}: {}", "Key".bold(), result.key_expr());
+                println!("\t{}: {}", "Timestamp".bold(), result.timestamp().map(|ts| {ts.to_string()}).unwrap_or_else(|| "None".into()));
                 println!(
                     "\t{}: {}",
                     "Value".bold(),
@@ -240,6 +254,157 @@ pub(crate) async fn do_query(z: &zenoh::Session, sub_matches: &ArgMatches) {
             Err(e) => {
                 println!("\t{}: {}", "Result".bold(), e);
             }
+        }
+    }
+}
+
+#[cfg(feature = "video")]
+use zenoh::shm::{
+    PosixShmProviderBackend,
+    PosixShmProviderBackendBuilder,
+    ShmProvider,
+    StaticProtocolID,
+    ShmProviderBuilder,
+    POSIX_PROTOCOL_ID};
+
+#[cfg(feature = "video")]
+const SHM_BUF_SIZE: usize = 64 * 1024 * 1024;
+
+#[cfg(feature = "video")]
+pub(crate) async fn do_stream(z: &zenoh::Session, sub_matches: &ArgMatches) {
+    let res = resolve_argument::<String>(sub_matches, "RESOLUTION", false).await.unwrap();
+    let with_height: Vec<usize> =
+        res
+            .split('x')
+            .map(|p| { p.parse::<usize>().unwrap() })
+            .collect();
+
+    let shm_back_end = zenoh::shm::PosixShmProviderBackend::builder()
+        .with_size(SHM_BUF_SIZE)
+        .unwrap()
+        .wait()
+        .unwrap();
+    let shm_provider: ShmProvider<StaticProtocolID<0>, PosixShmProviderBackend> = ShmProviderBuilder::builder()
+        .protocol_id::<POSIX_PROTOCOL_ID>()
+        .backend(shm_back_end)
+        .wait();
+
+    // let (config, key_expr, resolution, delay, reliability, congestion_ctrl, image_quality) =
+    //     parse_args();
+
+    println!("Opening session...");
+    let z = zenoh::open(config).await.unwrap();
+
+    let publ = z
+        .declare_publisher(&key_expr)
+        .reliability(reliability)
+        .congestion_control(congestion_ctrl)
+        .await
+        .unwrap();
+
+    let conf_sub = z
+        .declare_subscriber(format!("{}/zcapture/conf/**", key_expr))
+        .await
+        .unwrap();
+
+    let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY).unwrap();
+
+    let opened = videoio::VideoCapture::is_opened(&cam).unwrap();
+
+    if !opened {
+        panic!("Unable to open default camera!");
+    }
+    let mut encode_options = opencv::core::Vector::<i32>::new();
+    encode_options.push(opencv::imgcodecs::IMWRITE_JPEG_QUALITY);
+    encode_options.push(image_quality);
+
+    loop {
+        select!(
+            _ = tokio::time::sleep(std::time::Duration::from_millis(delay)).fuse() => {
+                let mut frame = Mat::default();
+                cam.read(&mut frame).unwrap();
+
+                if !frame.empty() {
+                    let mut reduced = Mat::default();
+                    opencv::imgproc::resize(&frame, &mut reduced, opencv::core::Size::new(resolution[0], resolution[1]), 0.0, 0.0 , opencv::imgproc::INTER_LINEAR).unwrap();
+
+                    let mut buf = opencv::core::Vector::<u8>::new();
+                    opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options).unwrap();
+                    let shm_len = ((buf.len() >> 8) + 1) << 8;
+                    let mut shm_buf = shm_provider
+                        .alloc(shm_len)
+                        .with_policy::<BlockOn<Defragment<GarbageCollect>>>()
+                        .wait().expect("Failed to allocate SHM buffer");
+                    let bs = buf.to_vec();
+                    for i in 0.. bs.len() {
+                        shm_buf[i] = bs[i];
+                    }
+                    publ.put(shm_buf).wait().unwrap();
+                } else {
+                    println!("Reading empty buffer from camera... Waiting some more....");
+                }
+            },
+            sample = conf_sub.recv_async().fuse() => {
+                let sample = sample.unwrap();
+                let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
+                let conf_val = String::from_utf8_lossy(&sample.payload().to_bytes()).to_string();
+                let _ = z.config().insert_json5(conf_key, &conf_val);
+            },
+        );
+    }
+}
+
+pub(crate) async fn do_queryable(z: &zenoh::Session, sub_matches: &ArgMatches) {
+    let complete = resolve_bool_argument(sub_matches, "complete");
+    let exec_script = resolve_bool_argument(sub_matches, "script");
+    let site_packages =
+        if let Some(path) = resolve_optional_argument::<String>(
+            sub_matches, "packages", false).await.unwrap() {
+            format!("import sys\nsys.path.append('{}')\n", path)
+        } else { String::default()};
+
+    let file_based = resolve_bool_argument(sub_matches, "file");
+    let kexpr: String = resolve_argument(sub_matches, "KEY_EXPR", false).await.unwrap();
+    let reply: String = resolve_argument(sub_matches, "REPLY", file_based).await.unwrap();
+
+
+    let queryable =
+        z.declare_queryable(kexpr.clone()).complete(complete).await.expect("Unable to declare queryable");
+
+    let mut n = 0;
+    let si = SourceInfo::new(Some(queryable.id()), Some(0));
+    println!("\tQueryable Running!");
+    use pyo3::prelude::*;
+    use pyo3::types::PyDict;
+    use std::ffi::CString;
+    pyo3::prepare_freethreaded_python();
+    while let Ok(query) = queryable.recv_async().await {
+        n += 1;
+        println!("{}({}):", "Query".bold(), n);
+        println!("\t{}: {}", "Key Expr".bold(), query.key_expr());
+        if exec_script {
+            let result = pyo3::prelude::Python::with_gil(|py| {
+                let locals = PyDict::new(py);
+                let key_expr = query.key_expr().to_string();
+                let payload = query.payload().map(|p| { p.to_bytes().to_vec() }).unwrap_or_else(Vec::new);
+                locals.set_item("key_expr", key_expr).unwrap();
+                locals.set_item("payload", payload).unwrap();
+
+                let script = CString::new(site_packages.clone() + reply.as_str()).unwrap();
+                py.run(script.as_c_str(), None, Some(&locals)).unwrap();
+                locals.get_item("result").unwrap().unwrap().extract::<String>().unwrap()
+            });
+
+            query.reply(query.key_expr(), &result)
+                .source_info(si.clone())
+                .timestamp(z.new_timestamp())
+                .await.unwrap();
+        }
+        else {
+            query.reply(query.key_expr(), &reply)
+                .source_info(si.clone())
+                .timestamp(z.new_timestamp())
+                .await.unwrap();
         }
     }
 }
