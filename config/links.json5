@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "name": "Multilink App",
+    "location": "My Laptop"
+  },
+
+  // [ "tcp", "udp", "tls", "quic", "ws", "serial", "unixsock-stream", "unixpipe", "vsock"]
+  listen: {
+    endpoints: {
+      peer: [
+        "tcp/127.0.0.1:7447",
+        "udp/127.0.0.1:7447",
+        "unixsock-stream/zsak/usock/1"
+      ]
+    }
+  },
+
+  "adminspace": {
+    "enabled": true,
+    "permissions": {
+      "read": true,
+      "write": true
+    }
+  }
+}

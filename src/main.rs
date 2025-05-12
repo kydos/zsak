@@ -61,7 +61,7 @@ async fn main() {
           true
         },
         Some(("storage", sub_matches)) => {
-            
+
             let complete = *sub_matches.get_one::<bool>("complete").unwrap();
             let kexpr = sub_matches.get_one::<String>("KEY_EXPR").unwrap();
             // @TODO: Eventually we should add additional params to configure the alignement algo.
@@ -72,9 +72,9 @@ async fn main() {
             let storage_cfg = format!("{{ key_expr: \"{}\", volume: \"memory\",  complete: \"{}\" {}, }}", kexpr, complete, replication);
 
             if let Some(path) = std::env::var_os("ZSAK_HOME") {
-                let config_path = 
+                let config_path =
                     path.into_string().unwrap() + "/config/config.json5";
-                
+
                 let cfg_template=
                     tokio::fs::read_to_string(config_path.clone())
                         .await.expect(&config_path);
@@ -109,9 +109,11 @@ fn set_required_options(config: &mut zenoh::config::Config) {
 }
 
 fn parse_top_level_args(config: &mut zenoh::config::Config, matches: &ArgMatches) -> String {
-    if let Some(m) = matches.get_one::<String>("name") {
-        config.insert_json5("metadata", &format!("{{ name: \"{}\" }}",m)).unwrap();
-    }
+    let  has_name =
+        if let Some(m) = matches.get_one::<String>("name") {
+            config.insert_json5("metadata", &format!("{{ name: \"{}\" }}",m)).unwrap();
+            true
+        } else { false };
 
     if let Some(ds) =  matches.get_one::<bool>("disable_scouting") {
         if *ds {
@@ -131,7 +133,7 @@ fn parse_top_level_args(config: &mut zenoh::config::Config, matches: &ArgMatches
     }
 
     if let Some(admin) = matches.get_one::<bool>("admin") {
-        if *admin {
+        if *admin || has_name{
             config.insert_json5("adminspace/enabled", "true").unwrap();
             config.insert_json5("adminspace/permissions", "{ read: true, write: true }").unwrap();
         }
