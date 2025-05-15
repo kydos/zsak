@@ -21,7 +21,7 @@ async fn main() {
     };
 
     set_required_options(&mut config);
-    let mode = parse_top_level_args(&mut config, &matches);
+    parse_top_level_args(&mut config, &matches);
 
     let z = zenoh::open(config.clone())
         .await
@@ -50,7 +50,7 @@ async fn main() {
             action::do_queryable(&z, sub_matches).await;
             false
         }
-        Some(("stream", sub_matches)) => {
+        Some(("stream", _sub_matches)) => {
             if cfg!(feature = "video") {
             } else {
             }
@@ -121,7 +121,7 @@ fn set_required_options(config: &mut zenoh::config::Config) {
         .unwrap();
 }
 
-fn parse_top_level_args(config: &mut zenoh::config::Config, matches: &ArgMatches) -> String {
+fn parse_top_level_args(config: &mut zenoh::config::Config, matches: &ArgMatches) {
     let has_name = if let Some(m) = matches.get_one::<String>("name") {
         config
             .insert_json5("metadata", &format!("{{ name: \"{}\" }}", m))
@@ -159,24 +159,18 @@ fn parse_top_level_args(config: &mut zenoh::config::Config, matches: &ArgMatches
         }
     }
 
-    let mode = match matches.get_one::<String>("mode") {
-        Some(m) => {
-            let mode = match m.as_str() {
-                "peer" => "peer",
-                "client" => "client",
-                "router" => "router",
-                _ => {
-                    println!("Invalid mode \"{}\" defaulting to \"peer\"", m);
-                    "peer"
-                }
-            };
-            config
-                .insert_json5("mode", &format!("\"{}\"", mode))
-                .unwrap();
-            mode
-        }
-        None => "peer",
-    };
-
-    mode.into()
+    if let Some(m) = matches.get_one::<String>("mode") {
+        let mode = match m.as_str() {
+            "peer" => "peer",
+            "client" => "client",
+            "router" => "router",
+            _ => {
+                println!("Invalid mode \"{}\" defaulting to \"peer\"", m);
+                "peer"
+            }
+        };
+        config
+            .insert_json5("mode", &format!("\"{}\"", mode))
+            .unwrap();
+    }
 }
