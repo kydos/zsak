@@ -5,27 +5,27 @@ use tokio::io::AsyncReadExt;
 const PUB_AFTER_HELP: &str = r#"
 To simply publish a value for a given key you can do as follows:
 
-     zenoh pub greeting hello
+    zenoh publish greeting hello
 
 You can also publish multiple messages by specifying the --count option and using the {N} macro
 if you want to diplay the cardinal number of the message:
 
-    zenoh pub --count 10 "This is the {N}th time I am saying hello!"
+    zenoh publish --count 10 "This is the {N}th time I am saying hello!"
 
 You can also publish messages periodically, by specifiyng a duration in milliseconds:
 
-    zenoh pub --count 10 --period 1000 "This is the {N}th time I am saying hello -- every second!"
+    zenoh publish --count 10 --period 1000 "This is the {N}th time I am saying hello -- every second!"
 
 "#;
 
 const SUB_AFTER_HELP: &str = r#"
 Creating a subscriber is extremely easy, as shown below:
 
-     zenoh sub zenoh/greeting
+    zenoh subscribe zenoh/greeting
 
 You can also use key expressions, as in:
 
-    zenoh sub zenoh/*
+    zenoh subscribe zenoh/*
 
 "#;
 
@@ -51,7 +51,7 @@ pub(crate) fn arg_parser() -> Command {
             .arg(arg!(-r --rest <PORT> "Enables the REST plugin").required(false))
             .arg(arg!(-m --mode <MODE> "The application mode <client|peer|router>").required(false))
             .arg(arg!(-e --endpoints <ENDPOINTS> "The array of endpoints to connect to, e.g. [\"tcp/10.0.0.1:7447\", \"udp/10.0.0.1:7444\"]").required(false))
-            .arg(arg!(--disable_scouting "Disable multicast Scouting").required(false))
+            .arg(arg!(--no-multicast-scouting "Disable multicast Scouting").required(false))
             .arg(arg!(-n --name <NAME> "Name for the application").required(false))
 
             .subcommand(
@@ -67,7 +67,7 @@ pub(crate) fn arg_parser() -> Command {
                 Command::new("publish")
                     .about("Publishes data on a given key expression")
                     .arg(arg!(-c --count <NUMBER> "The number of publications").required(false))
-                    .arg(arg!(-p --period <DURATION> "The number of publications").required(false))
+                    .arg(arg!(-p --period <DURATION> "The period of publications").required(false))
                     .arg(arg!(-f --file "If enabled expects that value/attachment are file names").required(false))
                     .arg(arg!(<KEY_EXPR> "The key expression used for the publication").required(true))
                     .arg(arg!(<VALUE> "The value used for this publication").required(true))
