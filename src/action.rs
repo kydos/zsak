@@ -15,12 +15,20 @@ use zenoh::session::ZenohId;
 pub async fn do_doctor() {
     match std::env::var("ZSAK_HOME") {
         Ok(_) => {
-            if let Err(_) = tokio::process::Command::new("zenohd").arg("-h").output().await {
-                println!("There is no zenohd defined in your PATH. Please double check your system configuration.");
+            if let Err(_) = tokio::process::Command::new("zenohd")
+                .arg("-h")
+                .output()
+                .await
+            {
+                println!(
+                    "There is no zenohd defined in your PATH. Please double check your system configuration."
+                );
             }
-        },
+        }
         Err(_) => {
-            println!("The ZSAK_HOME environment variable is not set, please run the setup.sh (see README.md for more information)");
+            println!(
+                "The ZSAK_HOME environment variable is not set, please run the setup.sh (see README.md for more information)"
+            );
         }
     };
 }
@@ -250,7 +258,14 @@ pub(crate) async fn do_query(z: &zenoh::Session, sub_matches: &ArgMatches) {
                 println!("\t{}: {}", "Source Id".bold(), sid);
                 println!("\t{}: {}", "Source SN".bold(), ssn);
                 println!("\t{}: {}", "Key".bold(), result.key_expr());
-                println!("\t{}: {}", "Timestamp".bold(), result.timestamp().map(|ts| {ts.to_string()}).unwrap_or_else(|| "None".into()));
+                println!(
+                    "\t{}: {}",
+                    "Timestamp".bold(),
+                    result
+                        .timestamp()
+                        .map(|ts| { ts.to_string() })
+                        .unwrap_or_else(|| "None".into())
+                );
                 println!(
                     "\t{}: {}",
                     "Value".bold(),
@@ -266,34 +281,33 @@ pub(crate) async fn do_query(z: &zenoh::Session, sub_matches: &ArgMatches) {
 
 #[cfg(feature = "video")]
 use zenoh::shm::{
-    PosixShmProviderBackend,
-    PosixShmProviderBackendBuilder,
-    ShmProvider,
-    StaticProtocolID,
-    ShmProviderBuilder,
-    POSIX_PROTOCOL_ID};
+    POSIX_PROTOCOL_ID, PosixShmProviderBackend, PosixShmProviderBackendBuilder, ShmProvider,
+    ShmProviderBuilder, StaticProtocolID,
+};
 
 #[cfg(feature = "video")]
 const SHM_BUF_SIZE: usize = 64 * 1024 * 1024;
 
 #[cfg(feature = "video")]
 pub(crate) async fn do_stream(z: &zenoh::Session, sub_matches: &ArgMatches) {
-    let res = resolve_argument::<String>(sub_matches, "RESOLUTION", false).await.unwrap();
-    let with_height: Vec<usize> =
-        res
-            .split('x')
-            .map(|p| { p.parse::<usize>().unwrap() })
-            .collect();
+    let res = resolve_argument::<String>(sub_matches, "RESOLUTION", false)
+        .await
+        .unwrap();
+    let with_height: Vec<usize> = res
+        .split('x')
+        .map(|p| p.parse::<usize>().unwrap())
+        .collect();
 
     let shm_back_end = zenoh::shm::PosixShmProviderBackend::builder()
         .with_size(SHM_BUF_SIZE)
         .unwrap()
         .wait()
         .unwrap();
-    let shm_provider: ShmProvider<StaticProtocolID<0>, PosixShmProviderBackend> = ShmProviderBuilder::builder()
-        .protocol_id::<POSIX_PROTOCOL_ID>()
-        .backend(shm_back_end)
-        .wait();
+    let shm_provider: ShmProvider<StaticProtocolID<0>, PosixShmProviderBackend> =
+        ShmProviderBuilder::builder()
+            .protocol_id::<POSIX_PROTOCOL_ID>()
+            .backend(shm_back_end)
+            .wait();
 
     // let (config, key_expr, resolution, delay, reliability, congestion_ctrl, image_quality) =
     //     parse_args();
@@ -363,19 +377,29 @@ pub(crate) async fn do_stream(z: &zenoh::Session, sub_matches: &ArgMatches) {
 pub(crate) async fn do_queryable(z: &zenoh::Session, sub_matches: &ArgMatches) {
     let complete = resolve_bool_argument(sub_matches, "complete");
     let exec_script = resolve_bool_argument(sub_matches, "script");
-    let site_packages =
-        if let Some(path) = resolve_optional_argument::<String>(
-            sub_matches, "packages", false).await.unwrap() {
-            format!("import sys\nsys.path.append('{}')\n", path)
-        } else { String::default()};
+    let site_packages = if let Some(path) =
+        resolve_optional_argument::<String>(sub_matches, "packages", false)
+            .await
+            .unwrap()
+    {
+        format!("import sys\nsys.path.append('{}')\n", path)
+    } else {
+        String::default()
+    };
 
     let file_based = resolve_bool_argument(sub_matches, "file");
-    let kexpr: String = resolve_argument(sub_matches, "KEY_EXPR", false).await.unwrap();
-    let reply: String = resolve_argument(sub_matches, "REPLY", file_based).await.unwrap();
+    let kexpr: String = resolve_argument(sub_matches, "KEY_EXPR", false)
+        .await
+        .unwrap();
+    let reply: String = resolve_argument(sub_matches, "REPLY", file_based)
+        .await
+        .unwrap();
 
-
-    let queryable =
-        z.declare_queryable(kexpr.clone()).complete(complete).await.expect("Unable to declare queryable");
+    let queryable = z
+        .declare_queryable(kexpr.clone())
+        .complete(complete)
+        .await
+        .expect("Unable to declare queryable");
 
     let mut n = 0;
     let si = SourceInfo::new(Some(queryable.id()), Some(0));
@@ -392,25 +416,36 @@ pub(crate) async fn do_queryable(z: &zenoh::Session, sub_matches: &ArgMatches) {
             let result = pyo3::prelude::Python::with_gil(|py| {
                 let locals = PyDict::new(py);
                 let key_expr = query.key_expr().to_string();
-                let payload = query.payload().map(|p| { p.to_bytes().to_vec() }).unwrap_or_else(Vec::new);
+                let payload = query
+                    .payload()
+                    .map(|p| p.to_bytes().to_vec())
+                    .unwrap_or_else(Vec::new);
                 locals.set_item("key_expr", key_expr).unwrap();
                 locals.set_item("payload", payload).unwrap();
 
                 let script = CString::new(site_packages.clone() + reply.as_str()).unwrap();
                 py.run(script.as_c_str(), None, Some(&locals)).unwrap();
-                locals.get_item("result").unwrap().unwrap().extract::<String>().unwrap()
+                locals
+                    .get_item("result")
+                    .unwrap()
+                    .unwrap()
+                    .extract::<String>()
+                    .unwrap()
             });
 
-            query.reply(query.key_expr(), &result)
+            query
+                .reply(query.key_expr(), &result)
                 .source_info(si.clone())
                 .timestamp(z.new_timestamp())
-                .await.unwrap();
-        }
-        else {
-            query.reply(query.key_expr(), &reply)
+                .await
+                .unwrap();
+        } else {
+            query
+                .reply(query.key_expr(), &reply)
                 .source_info(si.clone())
                 .timestamp(z.new_timestamp())
-                .await.unwrap();
+                .await
+                .unwrap();
         }
     }
 }
