@@ -12,7 +12,7 @@ path = "src/main.rs"
 video = ["opencv"]
 
 [dependencies]
-zenoh = {git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "dev/clopt", features = ["unstable", "internal", "stats", "shared-memory"]}
+zenoh = { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main", features = ["unstable", "internal", "stats", "shared-memory"]}
 clap = { version = "4.5.38", features = ["derive"] }
 pyo3 = "0.24.2"
 tokio = { version = "1.45.0", features = ["full"] }
