@@ -51,7 +51,7 @@ pub(crate) fn arg_parser() -> Command {
             .arg(arg!(-r --rest <PORT> "Enables the REST plugin").required(false))
             .arg(arg!(-m --mode <MODE> "The application mode <client|peer|router>").required(false))
             .arg(arg!(-e --endpoints <ENDPOINTS> "The array of endpoints to connect to, e.g. [\"tcp/10.0.0.1:7447\", \"udp/10.0.0.1:7444\"]").required(false))
-            .arg(arg!(--no-multicast-scouting "Disable multicast Scouting").required(false))
+            .arg(arg!(--"no-multicast-scouting" "Disable multicast Scouting").required(false))
             .arg(arg!(-n --name <NAME> "Name for the application").required(false))
 
             .subcommand(

@@ -135,7 +135,7 @@ fn parse_top_level_args(config: &mut zenoh::config::Config, matches: &ArgMatches
         false
     };
 
-    if let Some(ds) = matches.get_one::<bool>("disable_scouting") {
+    if let Some(ds) = matches.get_one::<bool>("no-multicast-scouting") {
         if *ds {
             println!("Scouting disabled");
             config
