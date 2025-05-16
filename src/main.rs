@@ -36,6 +36,10 @@ async fn main() {
             action::do_publish(&z, sub_matches).await;
             false
         }
+        Some(("delete", sub_matches)) => {
+            action::do_delete(&z, sub_matches).await;
+            false
+        }
         Some(("subscribe", sub_matches)) => {
             println!("Ctrl-C to quit");
             action::do_subscribe(&z, sub_matches).await;

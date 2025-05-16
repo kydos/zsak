@@ -120,6 +120,14 @@ pub async fn do_publish(z: &zenoh::Session, sub_matches: &ArgMatches) {
     }
 }
 
+pub async fn do_delete(z: &zenoh::Session, sub_matches: &ArgMatches) {
+    let kexpr: String = resolve_argument(sub_matches, "KEY_EXPR", false)
+        .await
+        .unwrap();
+
+    z.delete(kexpr).await.unwrap();
+}
+
 pub async fn do_subscribe(z: &zenoh::Session, sub_matches: &ArgMatches) {
     let kexpr: String = resolve_argument(sub_matches, "KEY_EXPR", false)
         .await
