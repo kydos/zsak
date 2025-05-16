@@ -3,23 +3,37 @@
     "name": "Multilink App",
     "location": "My Laptop"
   },
-
-  // [ "tcp", "udp", "tls", "quic", "ws", "serial", "unixsock-stream", "unixpipe", "vsock"]
-  listen: {
-    endpoints: {
-      peer: [
-        "tcp/127.0.0.1:7447",
-        "udp/127.0.0.1:7447",
-        "unixsock-stream/zsak/usock/1"
-      ]
-    }
-  },
-
   "adminspace": {
     "enabled": true,
     "permissions": {
       "read": true,
       "write": true
+    }
+  },
+  "plugins_loading": {
+    "enabled": true
+  },
+  "plugins": {
+    "rest": {
+      "__required__": true,
+      "http_port": 9009,
+      "work_thread_num": 2,
+      "max_block_thread_num": 50
+    },
+  },
+  listen: {
+    endpoints: {
+      peer: [
+        "tcp/127.0.0.1:7447",
+        "udp/127.0.0.1:7447",
+        //        "unixsock-stream/./zsak/usock",
+        //        "unixpipe/./zsak/pipe"
+      ]
+    }
+  },
+  transport: {
+    unicast: {
+      max_links: 2
     }
   }
 }

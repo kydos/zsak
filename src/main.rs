@@ -28,7 +28,7 @@ async fn main() {
 
     set_required_options(&mut config);
     let mode = parse_top_level_args(&mut config, &matches);
-
+    
     let z = zenoh::open(config.clone())
         .await
         .expect("Unable to open the Zenoh Session");
@@ -84,7 +84,7 @@ async fn main() {
 
                 tokio::task::spawn(
                     tokio::process::Command::new("zenohd")
-                        .args(["--inline-config", cfg.as_str()])
+                        .args(["--cfg", cfg.as_str()])
                         .output());
                 true
             } else {
@@ -106,6 +106,9 @@ fn set_required_options(config: &mut zenoh::config::Config) {
     config.insert_json5("plugins/storage_manager/__required__","true").unwrap();
     config.insert_json5("metadata", r#"{ name: "Zenoh Swiss Army Knife", location: "My Laptop" }"#).unwrap();
     config.insert_json5("timestamping", r#"{ enabled: { router: true, peer: true, client: true }, drop_future_timestamp: false }"#).unwrap();
+    config.insert_json5("transport/unicast/max_links", "10").unwrap();
+    config.insert_json5("transport/link/tx/keep_alive", "2").unwrap();
+    
 }
 
 fn parse_top_level_args(config: &mut zenoh::config::Config, matches: &ArgMatches) -> String {

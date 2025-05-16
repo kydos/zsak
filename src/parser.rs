@@ -68,6 +68,8 @@ pub(crate) fn arg_parser() -> Command {
                     .about("Publishes data on a given key expression")
                     .arg(arg!(-c --count <NUMBER> "The number of publications").required(false))
                     .arg(arg!(-p --period <DURATION> "The number of publications").required(false))
+                    .arg(arg!(-u --unreliable  "Asks to send this data with the best-effot QoS").required(false))
+                    .arg(arg!(--priority <PRIO>  "Set the specific priority").required(false))
                     .arg(arg!(-f --file "If enabled expects that value/attachment are file names").required(false))
                     .arg(arg!(<KEY_EXPR> "The key expression used for the publication").required(true))
                     .arg(arg!(<VALUE> "The value used for this publication").required(true))

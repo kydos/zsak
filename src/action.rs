@@ -7,6 +7,7 @@ use std::borrow::Cow;
 use std::time::Duration;
 use zenoh::bytes::Encoding;
 use zenoh::config::WhatAmI;
+use zenoh::qos::Reliability;
 use zenoh::query::{ConsolidationMode, QueryTarget};
 use zenoh::sample::SourceInfo;
 use zenoh::session::ZenohId;
@@ -59,6 +60,10 @@ pub async fn do_scout(z: &zenoh::Session, sub_matches: &ArgMatches) {
     .await;
 }
 pub async fn do_publish(z: &zenoh::Session, sub_matches: &ArgMatches) {
+    let reliability =
+        if resolve_bool_argument(sub_matches, "unreliable") { Reliability::BestEffort }
+        else { Reliability::Reliable };
+
     let file_based_data = resolve_bool_argument(sub_matches, "file");
 
     let kexpr: String = resolve_argument(sub_matches, "KEY_EXPR", false)
@@ -89,6 +94,7 @@ pub async fn do_publish(z: &zenoh::Session, sub_matches: &ArgMatches) {
         if some_attach.is_none() {
             z.put(&kexpr, value)
                 .encoding(Encoding::ZENOH_STRING)
+                .reliability(reliability)
                 .await
                 .unwrap();
             println!("[{}]", i);
@@ -226,12 +232,12 @@ pub(crate) async fn do_query(z: &zenoh::Session, sub_matches: &ArgMatches) {
         count += 1;
 
         println!("{}({}):", "Reply".bold(), count);
-        // let rid = if let Some(id) = reply.replier_id() {
-        //     id.to_string()
-        // } else {
-        //     "Unknown".into()
-        // };
-        // println!("\t{}: {}", "Replier Id".bold(), rid);
+        let rid = if let Some(id) = reply.replier_id() {
+            id.to_string()
+        } else {
+            "Unknown".into()
+        };
+        println!("\t{}: {}", "Replier Id".bold(), rid);
 
         match reply.result() {
             Ok(result) => {
