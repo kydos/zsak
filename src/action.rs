@@ -32,6 +32,7 @@ pub async fn do_doctor() {
         }
     };
 }
+
 pub async fn do_scout(z: &zenoh::Session, sub_matches: &ArgMatches) {
     let scout_interval = resolve_argument::<u64>(sub_matches, "SCOUT_INTERVAL", false)
         .await
@@ -67,10 +68,13 @@ pub async fn do_scout(z: &zenoh::Session, sub_matches: &ArgMatches) {
     })
     .await;
 }
+
 pub async fn do_publish(z: &zenoh::Session, sub_matches: &ArgMatches) {
-    let reliability =
-        if resolve_bool_argument(sub_matches, "unreliable") { Reliability::BestEffort }
-        else { Reliability::Reliable };
+    let reliability = if resolve_bool_argument(sub_matches, "unreliable") {
+        Reliability::BestEffort
+    } else {
+        Reliability::Reliable
+    };
 
     let file_based_data = resolve_bool_argument(sub_matches, "file");
 
