@@ -65,7 +65,7 @@ pub(crate) fn arg_parser() -> Command {
             )
             .subcommand(
                 Command::new("publish")
-                    .alias("pub")
+                    .alias("put")
                     .about("Publishes data on a given key expression")
                     .arg(arg!(-c --count <NUMBER> "The number of publications").required(false))
                     .arg(arg!(-p --period <DURATION> "The period of publications").required(false))
