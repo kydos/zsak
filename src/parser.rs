@@ -65,6 +65,7 @@ pub(crate) fn arg_parser() -> Command {
             )
             .subcommand(
                 Command::new("publish")
+                    .alias("pub")
                     .about("Publishes data on a given key expression")
                     .arg(arg!(-c --count <NUMBER> "The number of publications").required(false))
                     .arg(arg!(-p --period <DURATION> "The period of publications").required(false))
@@ -78,12 +79,14 @@ pub(crate) fn arg_parser() -> Command {
             )
             .subcommand(
                 Command::new("subscribe")
+                    .alias("sub")
                     .about("Subscribe to the given key expression")
                     .arg(arg!(<KEY_EXPR> "The key expression used for the publication").required(true))
                     .after_help(SUB_AFTER_HELP),
             )
             .subcommand(
                 Command::new("query")
+                    .alias("get")
                     .about("Issues a query")
                     .arg(arg!(-f --file "If enabled expects that body/attachment are file names").required(false))
                     .arg(arg!(-t --target <QUERY_TARGET> "Should be one of <best|all|all-complete>, \"best\" used by as the default.").required(false))
