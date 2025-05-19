@@ -51,7 +51,7 @@ pub(crate) fn arg_parser() -> Command {
             .arg(arg!(-r --rest <PORT> "Enables the REST plugin").required(false))
             .arg(arg!(-m --mode <MODE> "The application mode <client|peer|router>").required(false))
             .arg(arg!(-e --endpoints <ENDPOINTS> "The array of endpoints to connect to, e.g. [\"tcp/10.0.0.1:7447\", \"udp/10.0.0.1:7444\"]").required(false))
-            .arg(arg!(--no-multicast-scouting "Disable multicast Scouting").required(false))
+            .arg(arg!(--"no-multicast-scouting" "Disable multicast Scouting").required(false))
             .arg(arg!(-n --name <NAME> "Name for the application").required(false))
 
             .subcommand(
@@ -65,6 +65,7 @@ pub(crate) fn arg_parser() -> Command {
             )
             .subcommand(
                 Command::new("publish")
+                    .alias("pub")
                     .about("Publishes data on a given key expression")
                     .arg(arg!(-c --count <NUMBER> "The number of publications").required(false))
                     .arg(arg!(-p --period <DURATION> "The period of publications").required(false))
@@ -78,12 +79,14 @@ pub(crate) fn arg_parser() -> Command {
             )
             .subcommand(
                 Command::new("subscribe")
+                    .alias("sub")
                     .about("Subscribe to the given key expression")
                     .arg(arg!(<KEY_EXPR> "The key expression used for the publication").required(true))
                     .after_help(SUB_AFTER_HELP),
             )
             .subcommand(
                 Command::new("query")
+                    .alias("get")
                     .about("Issues a query")
                     .arg(arg!(-f --file "If enabled expects that body/attachment are file names").required(false))
                     .arg(arg!(-t --target <QUERY_TARGET> "Should be one of <best|all|all-complete>, \"best\" used by as the default.").required(false))
