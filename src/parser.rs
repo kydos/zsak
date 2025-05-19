@@ -77,6 +77,11 @@ pub(crate) fn arg_parser() -> Command {
                     .arg(arg!(<ATTACHMENT> "The publication attachment, if any").required(false))
                     .after_help(PUB_AFTER_HELP),
             )
+                        .subcommand(
+                Command::new("delete")
+                    .about("Delete data on a given key expression")
+                    .arg(arg!(<KEY_EXPR> "The key expression used for the publication").required(true))
+            )
             .subcommand(
                 Command::new("subscribe")
                     .alias("sub")
