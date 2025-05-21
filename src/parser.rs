@@ -65,7 +65,7 @@ pub(crate) fn arg_parser() -> Command {
             )
             .subcommand(
                 Command::new("publish")
-                    .alias("pub")
+                    .alias("put")
                     .about("Publishes data on a given key expression")
                     .arg(arg!(-c --count <NUMBER> "The number of publications").required(false))
                     .arg(arg!(-p --period <DURATION> "The period of publications").required(false))
@@ -76,6 +76,11 @@ pub(crate) fn arg_parser() -> Command {
                     .arg(arg!(<VALUE> "The value used for this publication").required(true))
                     .arg(arg!(<ATTACHMENT> "The publication attachment, if any").required(false))
                     .after_help(PUB_AFTER_HELP),
+            )
+                        .subcommand(
+                Command::new("delete")
+                    .about("Delete data on a given key expression")
+                    .arg(arg!(<KEY_EXPR> "The key expression used for the publication").required(true))
             )
             .subcommand(
                 Command::new("subscribe")

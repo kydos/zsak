@@ -32,7 +32,7 @@ async fn main() {
             action::do_scout(&z, sub_matches).await;
             false
         }
-        Some(("pub" | "publish", sub_matches)) => {
+        Some(("publish", sub_matches)) => {
             action::do_publish(&z, sub_matches).await;
             false
         }
@@ -40,12 +40,12 @@ async fn main() {
             action::do_delete(&z, sub_matches).await;
             false
         }
-        Some(("sub" | "subscribe", sub_matches)) => {
+        Some(("subscribe", sub_matches)) => {
             println!("Ctrl-C to quit");
             action::do_subscribe(&z, sub_matches).await;
             false
         }
-        Some(("get" | "query", sub_matches)) => {
+        Some(("query", sub_matches)) => {
             action::do_query(&z, sub_matches).await;
             false
         }
