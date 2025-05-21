@@ -46,7 +46,7 @@ pub(crate) fn arg_parser() -> Command {
         Command::new("zenoh")
             .about("Command line tool for publishing, subscribing and quering in Zenoh")
             .subcommand_required(true)
-            .arg(arg!(-c --config <KEY_EXPR> "The Zenoh configuration").required(false))
+            .arg(arg!(-c --config <FILE> "The Zenoh configuration").required(false))
             .arg(arg!(-a --admin "Enables the admin space").required(false))
             .arg(arg!(-r --rest <PORT> "Enables the REST plugin").required(false))
             .arg(arg!(-m --mode <MODE> "The application mode <client|peer|router>").required(false))
