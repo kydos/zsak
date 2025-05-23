@@ -4,6 +4,7 @@ use clap::ArgMatches;
 use colored::Colorize;
 use std::any::Any;
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::time::Duration;
 use zenoh::bytes::Encoding;
 use zenoh::config::WhatAmI;
@@ -12,6 +13,8 @@ use zenoh::qos::Reliability;
 use zenoh::query::{ConsolidationMode, QueryTarget};
 use zenoh::sample::{SampleKind, SourceInfo};
 use zenoh::session::ZenohId;
+
+const LIST_SCOUTING_INTERVAL: u64 = 2;
 
 pub async fn do_doctor() {
     match std::env::var("ZSAK_HOME") {
@@ -35,42 +38,45 @@ pub async fn do_doctor() {
     };
 }
 
-pub async fn do_scout(z: &zenoh::Session, sub_matches: &ArgMatches) {
-    let scout_interval = resolve_argument::<u64>(sub_matches, "SCOUT_INTERVAL", false)
-        .await
-        .expect("Scout interval should be an integer");
+pub async fn do_scout(z: &zenoh::Session, scout_interval: u64) ->  HashMap::<ZenohId, zenoh::scouting::Hello> {
 
     let config = z.config().lock().clone();
     let scouted = zenoh::scout(WhatAmI::Router | WhatAmI::Peer | WhatAmI::Client, config)
         .await
         .expect("Unable to scout");
 
-    let mut known_nodes = std::collections::HashMap::<ZenohId, bool>::new();
-    known_nodes.insert(z.zid(), true);
-    let mut sn = 0;
+    let mut known_nodes = HashMap::<ZenohId, zenoh::scouting::Hello>::new();
 
     let _ = tokio::time::timeout(Duration::from_secs(scout_interval), async {
         while let Ok(hello) = scouted.recv_async().await {
-            if let std::collections::hash_map::Entry::Vacant(e) = known_nodes.entry(hello.zid()) {
-                sn += 1;
-                e.insert(true);
-                println!("{}({}):", "scouted".bold(), sn);
-                println!("\t{}: {}", "Zenoh ID".bold(), hello.zid());
-                println!("\t{}: {}", "Kind".bold(), hello.whatami());
-                println!(
-                    "\t{}\n:{}\n",
-                    "Locators".bold(),
-                    hello
-                        .locators()
-                        .iter()
-                        .fold("".to_string(), |a, l| { a + &l.to_string() + ",\n\t   " })
-                );
-            }
+            known_nodes.insert(hello.zid(), hello);
         }
     })
     .await;
-}
 
+    known_nodes.remove(&z.zid());
+    known_nodes
+}
+pub async fn do_list(z: &zenoh::Session, sub_matches: &ArgMatches) -> Vec<(String, WhatAmI)> {
+
+    let ids = sub_matches.ids().map(|id| id.as_str()).collect::<Vec<_>>();
+    let kind =
+    if let Some(true) = sub_matches.get_one::<bool>("router") {
+        WhatAmI::Router as usize
+    } else if let Some(true) = sub_matches.get_one::<bool>("peer") {
+        WhatAmI::Peer as usize
+    } else if let Some(true) = sub_matches.get_one::<bool>("client") {
+        WhatAmI::Client as usize
+    } else {
+        WhatAmI::Router as usize | WhatAmI::Peer as usize | WhatAmI::Client as usize
+    };
+    let scouted = do_scout(&z, LIST_SCOUTING_INTERVAL).await;
+    // println!("Scouted: {:?}", &scouted);
+    scouted.iter()
+        .filter(|(zid, h)| { ((h.whatami() as usize) & kind != 0 )})
+        .map(|(zid, hello)| (zid.to_string(), hello.whatami()))
+        .collect::<Vec<(String, WhatAmI)>>()
+}
 pub async fn do_publish(z: &zenoh::Session, sub_matches: &ArgMatches) {
     let reliability = if resolve_bool_argument(sub_matches, "unreliable") {
         Reliability::BestEffort

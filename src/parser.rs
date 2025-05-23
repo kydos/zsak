@@ -64,6 +64,14 @@ pub(crate) fn arg_parser() -> Command {
                     .arg(arg!(<SCOUT_INTERVAL> "The time in seconds during which Zenoh will scout.").required(true))
             )
             .subcommand(
+                Command::new("list")
+                    .about("Lists the Zenoh runtimes, of the specified kind, currently discoverable")
+                    .arg(arg!(-a --all "all kind of zenoh runtimes, i.e., router, peer, client").required(false))
+                    .arg(arg!(-r --router "list only routers").required(false))
+                    .arg(arg!(-p --peer "list only peers").required(false))
+                    .arg(arg!(-c --client "list only clients").required(false))
+            )
+            .subcommand(
                 Command::new("publish")
                     .alias("put")
                     .about("Publishes data on a given key expression")

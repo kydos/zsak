@@ -1,5 +1,7 @@
 use clap::ArgMatches;
 use zenoh::liveliness::LivelinessToken;
+use colored::Colorize;
+use crate::parser::resolve_argument;
 
 mod action;
 mod parser;
@@ -27,7 +29,33 @@ async fn main() {
 
     let wait_for_ctrl_c = match matches.subcommand() {
         Some(("scout", sub_matches)) => {
-            action::do_scout(&z, sub_matches).await;
+            let scout_interval = resolve_argument::<u64>(sub_matches, "SCOUT_INTERVAL", false)
+                .await
+                .expect("Scout interval should be an integer");
+
+            let scouted = action::do_scout(&z, scout_interval).await;
+            let mut sn = 0;
+            for (_, hello) in scouted {
+                println!("{}({}):", "scouted".bold(), sn);
+                println!("\t{}: {}", "Zenoh ID".bold(), hello.zid());
+                println!("\t{}: {}", "Kind".bold(), hello.whatami());
+                println!(
+                    "\t{}\n:{}\n",
+                    "Locators".bold(),
+                    hello
+                        .locators()
+                        .iter()
+                        .fold("".to_string(), |a, l| { a + &l.to_string() + ",\n\t   " })
+                );
+                sn += 1;
+            }
+
+            false
+        }
+        Some(("list", sub_matches)) => {
+            for (id, wai) in action::do_list(&z, sub_matches).await {
+                println!("- {} ({})", id.bold(), wai);
+            }
             false
         }
         Some(("publish", sub_matches)) => {
