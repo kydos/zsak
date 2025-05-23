@@ -7,18 +7,20 @@ use std::borrow::Cow;
 use std::time::Duration;
 use zenoh::bytes::Encoding;
 use zenoh::config::WhatAmI;
+use zenoh::liveliness::LivelinessToken;
 use zenoh::qos::Reliability;
 use zenoh::query::{ConsolidationMode, QueryTarget};
-use zenoh::sample::SourceInfo;
+use zenoh::sample::{SampleKind, SourceInfo};
 use zenoh::session::ZenohId;
 
 pub async fn do_doctor() {
     match std::env::var("ZSAK_HOME") {
         Ok(_) => {
-            if let Err(_) = tokio::process::Command::new("zenohd")
+            if tokio::process::Command::new("zenohd")
                 .arg("-h")
                 .output()
                 .await
+                .is_err()
             {
                 println!(
                     "There is no zenohd defined in your PATH. Please double check your system configuration."
@@ -459,5 +461,45 @@ pub(crate) async fn do_queryable(z: &zenoh::Session, sub_matches: &ArgMatches) {
                 .await
                 .unwrap();
         }
+    }
+}
+pub(crate) async fn do_declare_liveliness_token(
+    z: &zenoh::Session,
+    key_expr: &str,
+) -> LivelinessToken {
+    z.liveliness().declare_token(key_expr).await.unwrap()
+}
+
+pub(crate) async fn do_subscribe_liveliness_token(z: &zenoh::Session, key_expr: &str) {
+    let sub = z.liveliness().declare_subscriber(key_expr).await.unwrap();
+    println!("Join/Leave Events:");
+    while let Ok(sample) = sub.recv_async().await {
+        match sample.kind() {
+            SampleKind::Put => {
+                println!(
+                    "\t{}: {}",
+                    sample.key_expr().as_str().bold(),
+                    "Joined".bold().green()
+                );
+            }
+            SampleKind::Delete => {
+                println!(
+                    "\t{}: {}",
+                    sample.key_expr().as_str().bold(),
+                    "Left".bold().red()
+                );
+            }
+        }
+    }
+}
+
+pub(crate) async fn do_query_liveliness(z: &zenoh::Session, key_expr: &str) {
+    let replies = z.liveliness().get(key_expr).await.unwrap();
+    println!("{}", "Livelines Tokens:".bold());
+    while let Ok(reply) = replies.recv_async().await {
+        println!(
+            "\t- {}",
+            reply.result().unwrap().key_expr().as_str().green()
+        );
     }
 }

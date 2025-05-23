@@ -1,4 +1,5 @@
 use clap::ArgMatches;
+use zenoh::liveliness::LivelinessToken;
 
 mod action;
 mod parser;
@@ -8,11 +9,8 @@ async fn main() {
     env_logger::init();
     let matches = parser::arg_parser().get_matches();
 
-    match matches.subcommand() {
-        Some(("doctor", _)) => {
-            action::do_doctor().await;
-        }
-        _ => {}
+    if let Some(("doctor", _)) = matches.subcommand() {
+        action::do_doctor().await;
     }
 
     let mut config = match matches.get_one::<String>("config") {
@@ -22,7 +20,7 @@ async fn main() {
 
     set_required_options(&mut config);
     parse_top_level_args(&mut config, &matches);
-
+    let mut _token: Option<LivelinessToken> = None;
     let z = zenoh::open(config.clone())
         .await
         .expect("Unable to open the Zenoh Session");
@@ -56,9 +54,12 @@ async fn main() {
         }
         Some(("stream", _sub_matches)) => {
             if cfg!(feature = "video") {
+                println!("Not Implemented Yet");
+                false
             } else {
+                println!("You need to enable the `video` feature");
+                false
             }
-            true
         }
         Some(("storage", sub_matches)) => {
             let complete = *sub_matches.get_one::<bool>("complete").unwrap();
@@ -94,6 +95,21 @@ async fn main() {
                 panic!("ZSAK_HOME environment variable not set, please see README.md");
             }
         }
+        Some(("liveliness", _sub_matches)) => {
+            if let Some(key_expr) = _sub_matches.get_one::<String>("declare") {
+                // If we drop the token, it loses liveliness.
+                _token = Some(action::do_declare_liveliness_token(&z, key_expr).await);
+                true
+            } else if let Some(key_expr) = _sub_matches.get_one::<String>("subscribe") {
+                action::do_subscribe_liveliness_token(&z, key_expr).await;
+                false
+            } else if let Some(key_expr) = _sub_matches.get_one::<String>("query") {
+                action::do_query_liveliness(&z, key_expr).await;
+                false
+            } else {
+                false
+            }
+        }
         _ => false,
     };
     if wait_for_ctrl_c {
@@ -116,7 +132,8 @@ fn set_required_options(config: &mut zenoh::config::Config) {
             r#"{ name: "Zenoh Swiss Army Knife", location: "My Laptop" }"#,
         )
         .unwrap();
-    config.insert_json5("timestamping", r#"{ enabled: { router: true, peer: true, client: true }, drop_future_timestamp: false }"#).unwrap();
+    config.insert_json5("timestamping",
+                        r#"{ enabled: { router: true, peer: true, client: true }, drop_future_timestamp: false }"#).unwrap();
     config
         .insert_json5("transport/unicast/max_links", "10")
         .unwrap();

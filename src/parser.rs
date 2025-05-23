@@ -119,6 +119,13 @@ pub(crate) fn arg_parser() -> Command {
                     .arg(arg!(-a --align "Automatically align storages").required(false))
                     .arg(arg!(<KEY_EXPR> "The expression associated with the queryable"))
                     .after_help(STORAGE_AFTER_HELP)
+            )
+            .subcommand(
+                Command::new("liveliness")
+                    .about("Declares, subscribes or queries liveliness tokens, depending on options")
+                    .arg(arg!(-d --declare <TOKEN_EXPR> "Declares a liveliness token for the given key expression").required(false))
+                    .arg(arg!(-s --subscribe <KEY_EXRP> "Subscribes to the liveliness token with the given key expression").required(false))
+                    .arg(arg!(-q --query <KEY_EXRP> "Queries the liveliness tokens matching the given key expression"))
             );
 
     if cfg!(feature = "video") {
