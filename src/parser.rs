@@ -50,7 +50,7 @@ pub(crate) fn arg_parser() -> Command {
             .arg(arg!(-a --admin "Enables the admin space").required(false))
             .arg(arg!(-r --rest <PORT> "Enables the REST plugin").required(false))
             .arg(arg!(-m --mode <MODE> "The application mode <client|peer|router>").required(false))
-            .arg(arg!(-e --endpoints <ENDPOINTS> "The array of endpoints to connect to, e.g. [\"tcp/10.0.0.1:7447\", \"udp/10.0.0.1:7444\"]").required(false))
+            .arg(arg!(-e --endpoints <ENDPOINTS> "The array of endpoints to connect to, e.g. [\"tcp/10.0.0.1:7447\", \"udp/10.0.0.1:7447 \"]").required(false))
             .arg(arg!(--"no-multicast-scouting" "Disable multicast Scouting").required(false))
             .arg(arg!(-n --name <NAME> "Name for the application").required(false))
 
@@ -134,6 +134,11 @@ pub(crate) fn arg_parser() -> Command {
                     .arg(arg!(-d --declare <TOKEN_EXPR> "Declares a liveliness token for the given key expression").required(false))
                     .arg(arg!(-s --subscribe <KEY_EXRP> "Subscribes to the liveliness token with the given key expression").required(false))
                     .arg(arg!(-q --query <KEY_EXRP> "Queries the liveliness tokens matching the given key expression"))
+            )
+            .subcommand(
+                Command::new("graph")
+                    .about("Retrieves the Zenoh routing graph. By default, tt uses the first discovered router to fetch it. \nTry: 'zenoh graph | dot -Tpng -o graph.png' ")
+                    .arg(arg!(-r --router <ZID> "The Zenoh-ID of the router from which the graph should be fetched").required(false))
             );
 
     if cfg!(feature = "video") {

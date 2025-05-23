@@ -1,6 +1,8 @@
 use clap::ArgMatches;
 use zenoh::liveliness::LivelinessToken;
 use colored::Colorize;
+use zenoh::config::WhatAmI;
+use crate::action::do_list;
 use crate::parser::resolve_argument;
 
 mod action;
@@ -34,8 +36,8 @@ async fn main() {
                 .expect("Scout interval should be an integer");
 
             let scouted = action::do_scout(&z, scout_interval).await;
-            let mut sn = 0;
-            for (_, hello) in scouted {
+
+            for (sn, (_, hello)) in scouted.into_iter().enumerate() {
                 println!("{}({}):", "scouted".bold(), sn);
                 println!("\t{}: {}", "Zenoh ID".bold(), hello.zid());
                 println!("\t{}: {}", "Kind".bold(), hello.whatami());
@@ -47,13 +49,22 @@ async fn main() {
                         .iter()
                         .fold("".to_string(), |a, l| { a + &l.to_string() + ",\n\t   " })
                 );
-                sn += 1;
             }
 
             false
         }
         Some(("list", sub_matches)) => {
-            for (id, wai) in action::do_list(&z, sub_matches).await {
+            let kind =
+                if let Some(true) = sub_matches.get_one::<bool>("router") {
+                    WhatAmI::Router as usize
+                } else if let Some(true) = sub_matches.get_one::<bool>("peer") {
+                    WhatAmI::Peer as usize
+                } else if let Some(true) = sub_matches.get_one::<bool>("client") {
+                    WhatAmI::Client as usize
+                } else {
+                    WhatAmI::Router as usize | WhatAmI::Peer as usize | WhatAmI::Client as usize
+                };
+            for (id, wai) in action::do_list(&z, kind).await {
                 println!("- {} ({})", id.bold(), wai);
             }
             false
@@ -137,6 +148,26 @@ async fn main() {
             } else {
                 false
             }
+        }
+        Some(("graph", _sub_matches)) => {
+            let zid = if let Some(zid) = _sub_matches.get_one::<String>("router") {
+                zid.to_string()
+            } else {
+                let scouted = do_list(&z, WhatAmI::Router as usize).await;
+                let (id, _) = scouted.first().expect("No Zenoh Router found");
+                id.to_string()
+            };
+            let query = format!("@/{}/router/linkstate/routers", zid);
+            // this is a single reply
+            let replies = z.get(query).await.unwrap();
+            let reply = replies.recv_async().await.unwrap();
+            let result = reply.result().unwrap();
+            let graph = result.payload().try_to_string().expect("Can't decode payload").to_string();
+            let split = graph.split('\n');
+            for line in split {
+                println!("{}", line);
+            }
+            false
         }
         _ => false,
     };

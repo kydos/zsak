@@ -57,23 +57,10 @@ pub async fn do_scout(z: &zenoh::Session, scout_interval: u64) ->  HashMap::<Zen
     known_nodes.remove(&z.zid());
     known_nodes
 }
-pub async fn do_list(z: &zenoh::Session, sub_matches: &ArgMatches) -> Vec<(String, WhatAmI)> {
-
-    let ids = sub_matches.ids().map(|id| id.as_str()).collect::<Vec<_>>();
-    let kind =
-    if let Some(true) = sub_matches.get_one::<bool>("router") {
-        WhatAmI::Router as usize
-    } else if let Some(true) = sub_matches.get_one::<bool>("peer") {
-        WhatAmI::Peer as usize
-    } else if let Some(true) = sub_matches.get_one::<bool>("client") {
-        WhatAmI::Client as usize
-    } else {
-        WhatAmI::Router as usize | WhatAmI::Peer as usize | WhatAmI::Client as usize
-    };
-    let scouted = do_scout(&z, LIST_SCOUTING_INTERVAL).await;
-    // println!("Scouted: {:?}", &scouted);
-    scouted.iter()
-        .filter(|(zid, h)| { ((h.whatami() as usize) & kind != 0 )})
+pub async fn do_list(z: &zenoh::Session, kind: usize) -> Vec<(String, WhatAmI)> {
+    do_scout(z, LIST_SCOUTING_INTERVAL).await
+        .iter()
+        .filter(|(_, h)| ((h.whatami() as usize) & kind != 0 ))
         .map(|(zid, hello)| (zid.to_string(), hello.whatami()))
         .collect::<Vec<(String, WhatAmI)>>()
 }
