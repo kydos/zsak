@@ -38,8 +38,10 @@ pub async fn do_doctor() {
     };
 }
 
-pub async fn do_scout(z: &zenoh::Session, scout_interval: u64) ->  HashMap::<ZenohId, zenoh::scouting::Hello> {
-
+pub async fn do_scout(
+    z: &zenoh::Session,
+    scout_interval: u64,
+) -> HashMap<ZenohId, zenoh::scouting::Hello> {
     let config = z.config().lock().clone();
     let scouted = zenoh::scout(WhatAmI::Router | WhatAmI::Peer | WhatAmI::Client, config)
         .await
@@ -58,9 +60,10 @@ pub async fn do_scout(z: &zenoh::Session, scout_interval: u64) ->  HashMap::<Zen
     known_nodes
 }
 pub async fn do_list(z: &zenoh::Session, kind: usize) -> Vec<(String, WhatAmI)> {
-    do_scout(z, LIST_SCOUTING_INTERVAL).await
+    do_scout(z, LIST_SCOUTING_INTERVAL)
+        .await
         .iter()
-        .filter(|(_, h)| ((h.whatami() as usize) & kind != 0 ))
+        .filter(|(_, h)| ((h.whatami() as usize) & kind != 0))
         .map(|(zid, hello)| (zid.to_string(), hello.whatami()))
         .collect::<Vec<(String, WhatAmI)>>()
 }

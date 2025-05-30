@@ -1,9 +1,9 @@
-use clap::ArgMatches;
-use zenoh::liveliness::LivelinessToken;
-use colored::Colorize;
-use zenoh::config::WhatAmI;
 use crate::action::do_list;
 use crate::parser::resolve_argument;
+use clap::ArgMatches;
+use colored::Colorize;
+use zenoh::config::WhatAmI;
+use zenoh::liveliness::LivelinessToken;
 
 mod action;
 mod parser;
@@ -54,16 +54,15 @@ async fn main() {
             false
         }
         Some(("list", sub_matches)) => {
-            let kind =
-                if let Some(true) = sub_matches.get_one::<bool>("router") {
-                    WhatAmI::Router as usize
-                } else if let Some(true) = sub_matches.get_one::<bool>("peer") {
-                    WhatAmI::Peer as usize
-                } else if let Some(true) = sub_matches.get_one::<bool>("client") {
-                    WhatAmI::Client as usize
-                } else {
-                    WhatAmI::Router as usize | WhatAmI::Peer as usize | WhatAmI::Client as usize
-                };
+            let kind = if let Some(true) = sub_matches.get_one::<bool>("router") {
+                WhatAmI::Router as usize
+            } else if let Some(true) = sub_matches.get_one::<bool>("peer") {
+                WhatAmI::Peer as usize
+            } else if let Some(true) = sub_matches.get_one::<bool>("client") {
+                WhatAmI::Client as usize
+            } else {
+                WhatAmI::Router as usize | WhatAmI::Peer as usize | WhatAmI::Client as usize
+            };
             for (id, wai) in action::do_list(&z, kind).await {
                 println!("- {} ({})", id.bold(), wai);
             }
@@ -162,7 +161,11 @@ async fn main() {
             let replies = z.get(query).await.unwrap();
             let reply = replies.recv_async().await.unwrap();
             let result = reply.result().unwrap();
-            let graph = result.payload().try_to_string().expect("Can't decode payload").to_string();
+            let graph = result
+                .payload()
+                .try_to_string()
+                .expect("Can't decode payload")
+                .to_string();
             let split = graph.split('\n');
             for line in split {
                 println!("{}", line);

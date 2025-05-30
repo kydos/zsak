@@ -12,9 +12,10 @@ video = ["opencv"]
 
 [dependencies]
 zenoh = { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main", features = ["unstable", "internal", "stats", "shared-memory"] }
+#zenoh = { version = "1.3.3", features = ["unstable", "internal", "stats", "shared-memory"] }
 clap = { version = "4.5.38", features = ["derive"] }
 pyo3 = "0.25.0"
-tokio = { version = "1.45.0", features = ["full"] }
+tokio = { version = "1.45.1", features = ["full"] }
 colored = { version ="3.0.0"}
 env_logger = "0.11.8"
 opencv = { version = "0.94.4", optional = true}

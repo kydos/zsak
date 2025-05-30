@@ -1,0 +1,109 @@
+{
+  metadata: {
+    name: "ZSAK Storage",
+    location: "My Laptop"
+  },
+
+  timestamping: {
+    enabled: {
+      router: true,
+      peer: true,
+      client: false
+    },
+    drop_future_timestamp: false
+  },
+  adminspace: {
+    enabled: true,
+    permissions: {
+      read: true,
+      write: true
+    }
+  },
+  plugins_loading: {
+    enabled: true
+  },
+  plugins: {
+    rest: {
+      __required__: true,
+      http_port: 9009,
+      work_thread_num: 2,
+      max_block_thread_num: 50
+    },
+    storage_manager: {
+      __required__: true,
+      volumes: {
+        influxdb: {
+          url: "https://myinfluxdb.example"
+        },
+        private: {
+          username: "user1",
+          password: "pw1",
+        },
+      },
+      storages: {
+        demo: "$STORAGE",
+        mem_store: {
+          key_expr: "alpha/**",
+          volume: "memory",
+          complete: "true"
+        },
+        roksdb_store: {
+          key_expr: "beta/**",
+          volume: {
+            id: "influxdb",
+            db: "example"
+          },
+          complete: "true"
+        }
+      }
+    }
+  },
+    qos: {
+      publication: [
+        {
+          key_exprs: ["demo/**", "example/key"],
+          config: {
+            congestion_control: "drop",
+            priority: "data_high",
+            express: true,
+            reliability: "best_effort",
+            allowed_destination: "remote",
+          },
+        },
+      ],
+      network: [
+        {
+          id: "lo0_en0_qos_overwrite",
+          // Optional list of ZIDs on which qos will be overwritten when communicating with.
+          // zids: ["38a4829bce9166ee"],
+          // Optional list of interfaces, if not specified, will be applied to all interfaces.
+          interfaces: [
+            "lo0",
+            "en0",
+          ],
+          /// Optional list of link protocols. Transports with at least one of these links will have their qos overwritten.
+          /// If absent, the overwrite will be applied to all transports. An empty list is invalid.
+          link_protocols: [ "tcp", "udp", "tls", "quic", "ws", "serial", "unixsock-stream", "unixpipe", "vsock"],
+          /// List of message types to apply to.
+          messages: [
+            "put", // put publications
+            "delete" // delete publications
+            "query", // get queries
+            "reply", // replies to queries
+          ],
+          /// Optional list of data flows messages will be processed on ("egress" and/or "ingress").
+          /// If absent, the rules will be applied to both flows.
+          flows: ["egress", "ingress"],
+          key_exprs: ["test/demo"],
+          overwrite: {
+            /// Optional new priority value, if not specified priority of the messages will stay unchanged.
+            priority: "real_time",
+            /// Optional new congestion control value, if not specified congestion control of the messages will stay unchanged.
+            congestion_control: "block",
+            /// Optional new express value, if not specified express flag of the messages will stay unchanged.
+            express: true
+          },
+        },
+      ],
+    }
+}
