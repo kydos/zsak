@@ -41,7 +41,7 @@ const STORAGE_AFTER_HELP: &str = r#"
 ADD HERE FEW EXAMPLES
 "#;
 
-pub(crate) fn arg_parser() -> Command {
+pub fn arg_parser() -> Command {
     let cmd =
         Command::new("zenoh")
             .about("Command line tool for publishing, subscribing and quering in Zenoh")
@@ -51,6 +51,7 @@ pub(crate) fn arg_parser() -> Command {
             .arg(arg!(-r --rest <PORT> "Enables the REST plugin").required(false))
             .arg(arg!(-m --mode <MODE> "The application mode <client|peer|router>").required(false))
             .arg(arg!(-e --endpoints <ENDPOINTS> "The array of endpoints to connect to, e.g. [\"tcp/10.0.0.1:7447\", \"udp/10.0.0.1:7447 \"]").required(false))
+            .arg(arg!(-l --listen <ENDPOINTS> "The array of endpoints to listen on to, e.g. [\"tcp/10.0.0.1:7447\", \"udp/10.0.0.1:7447 \"]").required(false))
             .arg(arg!(--"no-multicast-scouting" "Disable multicast Scouting").required(false))
             .arg(arg!(-n --name <NAME> "Name for the application").required(false))
 
@@ -151,7 +152,7 @@ pub(crate) fn arg_parser() -> Command {
     }
 }
 
-pub(crate) async fn resolve_argument<T: FromStr>(
+pub async fn resolve_argument<T: FromStr>(
     sub_matches: &ArgMatches,
     arg: &str,
     file_based: bool,
@@ -169,7 +170,7 @@ pub(crate) async fn resolve_argument<T: FromStr>(
         v.to_string().parse::<T>()
     }
 }
-pub(crate) async fn resolve_optional_argument<T: FromStr>(
+pub async fn resolve_optional_argument<T: FromStr>(
     sub_matches: &ArgMatches,
     arg: &str,
     file_based: bool,
@@ -190,7 +191,7 @@ pub(crate) async fn resolve_optional_argument<T: FromStr>(
         Ok(None)
     }
 }
-pub(crate) fn resolve_bool_argument(sub_matches: &ArgMatches, arg: &str) -> bool {
+pub fn resolve_bool_argument(sub_matches: &ArgMatches, arg: &str) -> bool {
     if let Some(v) = sub_matches.get_one::<bool>(arg) {
         *v
     } else {

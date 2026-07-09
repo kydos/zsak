@@ -1,0 +1,24 @@
+{
+  mode: "peer",
+  /// Configure the scouting mechanisms and their behaviours
+  scouting: {
+    timeout: 3000,
+    delay: 500,
+    multicast: {
+      enabled: true,
+      address: "224.0.0.224:7446",
+      interface: "auto", // If not set or set to "auto" the interface if picked automatically
+      ttl: 1,
+      autoconnect: { router: [], peer: ["router", "peer"], client: ["router"] },
+      autoconnect_strategy: { peer: { to_router: "greater-zid", to_peer: "greater-zid" } },
+      listen: true,
+    },
+    gossip: {
+      enabled: false,
+      multihop: false,
+      target: { router: ["router", "peer"], peer: ["router", "peer"]},
+      autoconnect: { router: [], peer: ["router", "peer"] },
+      autoconnect_strategy: { peer: { to_router: "greater-zid", to_peer: "greater-zid" } },
+    },
+  },
+}

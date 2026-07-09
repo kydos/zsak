@@ -1,4 +1,5 @@
 use crate::parser::*;
+use crate::types::*;
 
 use clap::ArgMatches;
 use colored::Colorize;
@@ -63,7 +64,7 @@ pub async fn do_list(z: &zenoh::Session, kind: usize) -> Vec<(String, WhatAmI)> 
     do_scout(z, LIST_SCOUTING_INTERVAL)
         .await
         .iter()
-        .filter(|(_, h)| ((h.whatami() as usize) & kind != 0))
+        .filter(|(_, h)| (h.whatami() as usize) & kind != 0)
         .map(|(zid, hello)| (zid.to_string(), hello.whatami()))
         .collect::<Vec<(String, WhatAmI)>>()
 }
@@ -166,7 +167,7 @@ pub async fn do_subscribe(z: &zenoh::Session, sub_matches: &ArgMatches) {
     }
 }
 
-pub(crate) async fn do_query(z: &zenoh::Session, sub_matches: &ArgMatches) {
+pub async fn do_query(z: &zenoh::Session, sub_matches: &ArgMatches) {
     let file_based_data = resolve_bool_argument(sub_matches, "file");
 
     let qexpr: String = resolve_argument(sub_matches, "QUERY_EXPR", false)
@@ -299,7 +300,7 @@ use zenoh::shm::{
 const SHM_BUF_SIZE: usize = 64 * 1024 * 1024;
 
 #[cfg(feature = "video")]
-pub(crate) async fn do_stream(z: &zenoh::Session, sub_matches: &ArgMatches) {
+pub async fn do_stream(z: &zenoh::Session, sub_matches: &ArgMatches) {
     let res = resolve_argument::<String>(sub_matches, "RESOLUTION", false)
         .await
         .unwrap();
@@ -384,7 +385,7 @@ pub(crate) async fn do_stream(z: &zenoh::Session, sub_matches: &ArgMatches) {
     }
 }
 
-pub(crate) async fn do_queryable(z: &zenoh::Session, sub_matches: &ArgMatches) {
+pub async fn do_queryable(z: &zenoh::Session, sub_matches: &ArgMatches) {
     let complete = resolve_bool_argument(sub_matches, "complete");
     let exec_script = resolve_bool_argument(sub_matches, "script");
     let site_packages = if let Some(path) =
@@ -417,13 +418,12 @@ pub(crate) async fn do_queryable(z: &zenoh::Session, sub_matches: &ArgMatches) {
     use pyo3::prelude::*;
     use pyo3::types::PyDict;
     use std::ffi::CString;
-    pyo3::prepare_freethreaded_python();
     while let Ok(query) = queryable.recv_async().await {
         n += 1;
         println!("{}({}):", "Query".bold(), n);
         println!("\t{}: {}", "Key Expr".bold(), query.key_expr());
         if exec_script {
-            let result = pyo3::prelude::Python::with_gil(|py| {
+            let result = Python::attach(|py| {
                 let locals = PyDict::new(py);
                 let key_expr = query.key_expr().to_string();
                 let payload = query
@@ -459,14 +459,14 @@ pub(crate) async fn do_queryable(z: &zenoh::Session, sub_matches: &ArgMatches) {
         }
     }
 }
-pub(crate) async fn do_declare_liveliness_token(
+pub async fn do_declare_liveliness_token(
     z: &zenoh::Session,
     key_expr: &str,
 ) -> LivelinessToken {
     z.liveliness().declare_token(key_expr).await.unwrap()
 }
 
-pub(crate) async fn do_subscribe_liveliness_token(z: &zenoh::Session, key_expr: &str) {
+pub async fn do_subscribe_liveliness_token(z: &zenoh::Session, key_expr: &str) {
     let sub = z.liveliness().declare_subscriber(key_expr).await.unwrap();
     println!("Join/Leave Events:");
     while let Ok(sample) = sub.recv_async().await {
@@ -489,7 +489,7 @@ pub(crate) async fn do_subscribe_liveliness_token(z: &zenoh::Session, key_expr: 
     }
 }
 
-pub(crate) async fn do_query_liveliness(z: &zenoh::Session, key_expr: &str) {
+pub async fn do_query_liveliness(z: &zenoh::Session, key_expr: &str) {
     let replies = z.liveliness().get(key_expr).await.unwrap();
     println!("{}", "Livelines Tokens:".bold());
     while let Ok(reply) = replies.recv_async().await {
@@ -497,5 +497,307 @@ pub(crate) async fn do_query_liveliness(z: &zenoh::Session, key_expr: &str) {
             "\t- {}",
             reply.result().unwrap().key_expr().as_str().green()
         );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Typed variants used by the GUI (and callable from tests / future tooling)
+// The CLI wrappers above remain unchanged.
+// ---------------------------------------------------------------------------
+
+pub async fn do_publish_with(z: &zenoh::Session, p: &PublishParams) -> Vec<ZenohEvent> {
+    let reliability = if p.reliable {
+        Reliability::Reliable
+    } else {
+        Reliability::BestEffort
+    };
+    let mut events = Vec::new();
+    for i in 1..=p.count {
+        let value = p.value.replace("{N}", i.to_string().as_str());
+        if let Some(ref attach) = p.attachment {
+            z.put(&p.key_expr, value.clone())
+                .attachment(attach.clone())
+                .encoding(Encoding::ZENOH_STRING)
+                .reliability(reliability)
+                .await
+                .unwrap();
+        } else {
+            z.put(&p.key_expr, value.clone())
+                .encoding(Encoding::ZENOH_STRING)
+                .reliability(reliability)
+                .await
+                .unwrap();
+        }
+        events.push(ZenohEvent::Sample {
+            key: p.key_expr.clone(),
+            value,
+            attachment: p.attachment.clone(),
+            n: i as u64,
+        });
+        if p.period_ms != 0 {
+            tokio::time::sleep(Duration::from_millis(p.period_ms)).await;
+        }
+    }
+    events
+}
+
+pub async fn do_delete_with(z: &zenoh::Session, p: &DeleteParams) {
+    z.delete(&p.key_expr).await.unwrap();
+}
+
+pub async fn do_query_with(z: &zenoh::Session, p: &QueryParams) -> Vec<ZenohEvent> {
+    let replies = if let Some(ref body) = p.body {
+        if let Some(ref attach) = p.attachment {
+            z.get(&p.query_expr)
+                .target(p.target)
+                .consolidation(p.consolidation)
+                .payload(body.clone())
+                .attachment(attach.clone())
+                .await
+                .unwrap()
+        } else {
+            z.get(&p.query_expr)
+                .target(p.target)
+                .consolidation(p.consolidation)
+                .payload(body.clone())
+                .await
+                .unwrap()
+        }
+    } else if let Some(ref attach) = p.attachment {
+        z.get(&p.query_expr)
+            .target(p.target)
+            .consolidation(p.consolidation)
+            .attachment(attach.clone())
+            .await
+            .unwrap()
+    } else {
+        z.get(&p.query_expr)
+            .target(p.target)
+            .consolidation(p.consolidation)
+            .await
+            .unwrap()
+    };
+
+    let mut events = Vec::new();
+    let mut n: u64 = 0;
+    while let Ok(reply) = replies.recv_async().await {
+        n += 1;
+        match reply.result() {
+            Ok(sample) => {
+                let key = sample.key_expr().to_string();
+                let value = sample
+                    .payload()
+                    .try_to_string()
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|_| "[binary]".into());
+                events.push(ZenohEvent::Sample {
+                    key,
+                    value,
+                    attachment: None,
+                    n,
+                });
+            }
+            Err(e) => {
+                events.push(ZenohEvent::Error(e.to_string()));
+            }
+        }
+    }
+    events
+}
+
+pub async fn do_graph_with(z: &zenoh::Session, p: &GraphParams) -> Result<String, String> {
+    let zid = if let Some(ref zid) = p.router_zid {
+        zid.clone()
+    } else {
+        let scouted = do_list(z, WhatAmI::Router as usize).await;
+        if let Some((id, _)) = scouted.first() {
+            id.clone()
+        } else {
+            let ids: Vec<ZenohId> = z.info().routers_zid().await.collect();
+            match ids.first() {
+                Some(id) => id.to_string(),
+                None => return Err("Unable to find any router for graph query".into()),
+            }
+        }
+    };
+    let query = format!("@/{}/router/linkstate/routers", zid);
+    let replies = z.get(query).await.map_err(|e| e.to_string())?;
+    match replies.recv_async().await {
+        Ok(reply) => match reply.result() {
+            Ok(sample) => sample
+                .payload()
+                .try_to_string()
+                .map(|s| s.to_string())
+                .map_err(|e| e.to_string()),
+            Err(e) => Err(e.to_string()),
+        },
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+pub async fn do_liveliness_with(
+    z: &zenoh::Session,
+    p: &LivelinessParams,
+) -> Vec<ZenohEvent> {
+    match &p.action {
+        LivelinessAction::Query(key_expr) => {
+            let replies = z.liveliness().get(key_expr).await.unwrap();
+            let mut events = Vec::new();
+            while let Ok(reply) = replies.recv_async().await {
+                if let Ok(sample) = reply.result() {
+                    events.push(ZenohEvent::LivelinessJoin(
+                        sample.key_expr().to_string(),
+                    ));
+                }
+            }
+            events.push(ZenohEvent::Done);
+            events
+        }
+        // Declare and Subscribe are streaming; handled by streaming variants below
+        _ => vec![ZenohEvent::Done],
+    }
+}
+
+// Streaming variants — used by the GUI bridge
+
+#[cfg(feature = "gui")]
+pub async fn do_subscribe_streaming(
+    z: &zenoh::Session,
+    params: SubscribeParams,
+    tx: tokio::sync::mpsc::Sender<ZenohEvent>,
+    mut cancel: tokio::sync::oneshot::Receiver<()>,
+) {
+    let sub = match z.declare_subscriber(&params.key_expr).await {
+        Ok(s) => s,
+        Err(e) => {
+            let _ = tx.send(ZenohEvent::Error(e.to_string())).await;
+            return;
+        }
+    };
+    let mut n: u64 = 0;
+    loop {
+        tokio::select! {
+            result = sub.recv_async() => {
+                match result {
+                    Ok(sample) => {
+                        n += 1;
+                        let key = sample.key_expr().to_string();
+                        let value = sample.payload().try_to_string()
+                            .map(|s| s.to_string())
+                            .unwrap_or_else(|_| "[binary]".into());
+                        let attachment = sample.attachment()
+                            .and_then(|a| a.try_to_string().ok())
+                            .map(|s| s.to_string());
+                        if tx.send(ZenohEvent::Sample { key, value, attachment, n }).await.is_err() {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+            _ = &mut cancel => break,
+        }
+    }
+}
+
+#[cfg(feature = "gui")]
+pub async fn do_subscribe_liveliness_streaming(
+    z: &zenoh::Session,
+    key_expr: String,
+    tx: tokio::sync::mpsc::Sender<ZenohEvent>,
+    mut cancel: tokio::sync::oneshot::Receiver<()>,
+) {
+    let sub = match z.liveliness().declare_subscriber(&key_expr).await {
+        Ok(s) => s,
+        Err(e) => {
+            let _ = tx.send(ZenohEvent::Error(e.to_string())).await;
+            return;
+        }
+    };
+    loop {
+        tokio::select! {
+            result = sub.recv_async() => {
+                match result {
+                    Ok(sample) => {
+                        let key = sample.key_expr().to_string();
+                        let event = match sample.kind() {
+                            SampleKind::Put => ZenohEvent::LivelinessJoin(key),
+                            SampleKind::Delete => ZenohEvent::LivelinessLeave(key),
+                        };
+                        if tx.send(event).await.is_err() {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+            _ = &mut cancel => break,
+        }
+    }
+}
+
+#[cfg(feature = "gui")]
+pub async fn do_queryable_streaming(
+    z: &zenoh::Session,
+    params: QueryableParams,
+    tx: tokio::sync::mpsc::Sender<ZenohEvent>,
+    mut cancel: tokio::sync::oneshot::Receiver<()>,
+) {
+    let site_packages = params.packages_path.as_ref().map(|p| {
+        format!("import sys\nsys.path.append('{}')\n", p)
+    }).unwrap_or_default();
+
+    let queryable = match z.declare_queryable(&params.key_expr).complete(params.complete).await {
+        Ok(q) => q,
+        Err(e) => {
+            let _ = tx.send(ZenohEvent::Error(e.to_string())).await;
+            return;
+        }
+    };
+    let si = SourceInfo::new(Some(queryable.id()), Some(0));
+    let mut n: u64 = 0;
+    loop {
+        tokio::select! {
+            result = queryable.recv_async() => {
+                match result {
+                    Ok(query) => {
+                        n += 1;
+                        let key = query.key_expr().to_string();
+                        if tx.send(ZenohEvent::QueryIn { key: key.clone(), n }).await.is_err() {
+                            break;
+                        }
+                        if params.exec_script {
+                            use pyo3::prelude::*;
+                            use pyo3::types::PyDict;
+                            use std::ffi::CString;
+                            let reply_str = params.reply.clone();
+                            let site_pkg = site_packages.clone();
+                            let result = Python::attach(|py| {
+                                let locals = PyDict::new(py);
+                                let payload = query.payload()
+                                    .map(|p| p.to_bytes().to_vec())
+                                    .unwrap_or_default();
+                                locals.set_item("key_expr", key.clone()).unwrap();
+                                locals.set_item("payload", payload).unwrap();
+                                let script = CString::new(site_pkg + reply_str.as_str()).unwrap();
+                                py.run(script.as_c_str(), None, Some(&locals)).unwrap();
+                                locals.get_item("result").unwrap().unwrap().extract::<String>().unwrap()
+                            });
+                            let _ = query.reply(query.key_expr(), &result)
+                                .source_info(si.clone())
+                                .timestamp(z.new_timestamp())
+                                .await;
+                        } else {
+                            let _ = query.reply(query.key_expr(), &params.reply)
+                                .source_info(si.clone())
+                                .timestamp(z.new_timestamp())
+                                .await;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+            _ = &mut cancel => break,
+        }
     }
 }

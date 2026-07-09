@@ -3,19 +3,37 @@ name = "zsak"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "zsak"
+path = "src/lib.rs"
+
 [[bin]]
 name = "zenoh"
 path = "src/main.rs"
 
+[[bin]]
+name = "zsak-gui"
+path = "src/gui/main.rs"
+required-features = ["gui"]
+
 [features]
 video = ["opencv"]
+gui = ["dep:iced", "dep:petgraph", "dep:fdg-sim", "dep:tokio-stream"]
 
 [dependencies]
-zenoh = { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main", features = ["unstable", "internal", "stats", "shared-memory"] }
-#zenoh = { version = "1.3.3", features = ["unstable", "internal", "stats", "shared-memory"] }
-clap = { version = "4.5.38", features = ["derive"] }
-pyo3 = "0.25.0"
-tokio = { version = "1.45.1", features = ["full"] }
-colored = { version ="3.0.0"}
+zenoh = { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main", features = [
+    "unstable",
+    "internal",
+    "stats",
+    "shared-memory",
+] }
+clap = { version = "4", features = ["derive"] }
+pyo3 = "0.28"
+tokio = { version = "1.50", features = ["full"] }
+colored = { version = "3.1" }
 env_logger = "0.11.8"
-opencv = { version = "0.94.4", optional = true}
+opencv = { version = "0.98", optional = true }
+iced = { version = "0.13", features = ["tokio", "canvas"], optional = true }
+petgraph = { version = "0.6", optional = true }
+fdg-sim = { version = "0.3", optional = true }
+tokio-stream = { version = "0.1", optional = true }

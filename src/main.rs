@@ -1,12 +1,11 @@
-use crate::action::do_list;
-use crate::parser::resolve_argument;
+use zsak::action;
+use zsak::action::do_list;
+use zsak::parser;
+use zsak::parser::resolve_argument;
 use clap::ArgMatches;
 use colored::Colorize;
-use zenoh::config::WhatAmI;
+use zenoh::config::{WhatAmI, ZenohId};
 use zenoh::liveliness::LivelinessToken;
-
-mod action;
-mod parser;
 
 #[tokio::main]
 async fn main() {
@@ -153,8 +152,14 @@ async fn main() {
                 zid.to_string()
             } else {
                 let scouted = do_list(&z, WhatAmI::Router as usize).await;
-                let (id, _) = scouted.first().expect("No Zenoh Router found");
-                id.to_string()
+                if let Some((id, _)) =  scouted.first() {
+                    id.to_string()
+                } else {
+
+                    let ids: Vec<ZenohId> = z.info().routers_zid().await.collect();
+                    let id = ids.first().expect("Unable to find any runtime that could be queried for graph");
+                    id.to_string()
+                }
             };
             let query = format!("@/{}/router/linkstate/routers", zid);
             // this is a single reply
@@ -225,6 +230,10 @@ fn parse_top_level_args(config: &mut zenoh::config::Config, matches: &ArgMatches
 
     if let Some(es) = matches.get_one::<String>("endpoints") {
         config.insert_json5("connect/endpoints", es).unwrap();
+    }
+
+    if let Some(es) = matches.get_one::<String>("listen") {
+        config.insert_json5("listen/endpoints", es).unwrap();
     }
 
     if let Some(port) = matches.get_one::<String>("rest") {
